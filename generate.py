@@ -47,9 +47,9 @@ def generate_heatmap(df, title, figsize=(12, 6), cmap="RdYlGn", annot=True, vmin
 
 def generate_report(analysis_results):
     # Chargement des fichiers nécessaires
-    correlation_matrix = load_csv_file('matrice_correlation.csv')
-    df_ratios = load_csv_file('rapport_ratios.csv')
-    data = pd.read_csv('rendements_cryptos.csv', index_col='Date', parse_dates=True)
+    correlation_matrix = load_csv_file('output/matrice_correlation.csv')
+    df_ratios = load_csv_file('output/rapport_ratios.csv')
+    data = pd.read_csv('output/rendements_cryptos.csv', index_col='Date', parse_dates=True)
     monthly_returns_all_cryptos = load_csv_file('output/monthly_returns_all_cryptos.csv')
     annual_returns_transposed = load_csv_file('output/annual_returns_transposed.csv')
 
@@ -100,9 +100,9 @@ def generate_report(analysis_results):
         normalized_prices[ticker] = (data[close_column] / data[close_column].iloc[0] - 1) * 100
 
     # Images
-    img_performance_base64 = image_to_base64('performance_relative_et_prix.png')
-    img_corr_mobile_base64 = image_to_base64('correlations_rolling_windows.png')
-    img_corr_base64 = image_to_base64('matrice_correlation.png')
+    img_performance_base64 = image_to_base64('output/performance_relative_et_prix.png')
+    img_corr_mobile_base64 = image_to_base64('output/correlations_rolling_windows.png')
+    img_corr_base64 = image_to_base64('output/matrice_correlation.png')
 
     df_ratios_html = df_ratios.to_html(index=False, border=0)
 

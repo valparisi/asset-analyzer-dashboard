@@ -1,5 +1,6 @@
 import yfinance as yf
 import pandas as pd
+import os
 
 def extract_data(tickers, start_date, end_date, save_csv=True, csv_filename='rendements_cryptos.csv'):
     # ✅ S'assurer que les tickers sont bien formatés (ex: 'BTC' -> 'BTC-USD')
@@ -29,11 +30,18 @@ def extract_data(tickers, start_date, end_date, save_csv=True, csv_filename='ren
     data = data[columns_order]
 
     if save_csv:
-        data.to_csv(csv_filename)
-        print(f"[INFO] Données sauvegardées dans '{csv_filename}'")
+    # Créer le dossier 'output' s’il n’existe pas
+        os.makedirs("output", exist_ok=True)
 
-        print("✅ Colonnes retournées :", data.columns.tolist())
-        print("✅ Shape des données :", data.shape)
+    # Construire le chemin vers le fichier dans 'output'
+    output_path = os.path.join("output", csv_filename)
+
+    # Sauvegarder le CSV
+    data.to_csv(output_path)
+
+    print(f"[INFO] Données sauvegardées dans '{output_path}'")
+    print("✅ Colonnes retournées :", data.columns.tolist())
+    print("✅ Shape des données :", data.shape)
 
     return data
 
