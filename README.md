@@ -6,7 +6,7 @@ Ce projet permet d'analyser les performances et les risques de plusieurs cryptom
 
 ## 📁 Structure du projet
 
-. ├── app.py # Script principal à exécuter ├── analyze.py # Contient la fonction run_analysis() ├── report_generator.py # Contient la fonction generate_report() ├── extraction.py # Contient la fonction extract_data() ├── output/ # Dossier de sortie (automatiquement créé) └── README.md # Ce fichier
+. ├── app.py # Script principal à exécuter ├── analyze.py # Contient la fonction run_analysis() ├── generate.py # Contient la fonction generate_report() ├── extraction.py # Contient la fonction extract_data() ├── output/ # Dossier de sortie (automatiquement créé) └── README.md # Ce fichier
 
 
 ---
