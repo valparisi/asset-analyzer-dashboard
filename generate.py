@@ -45,7 +45,7 @@ def generate_heatmap(df, title, figsize=(12, 6), cmap="RdYlGn", annot=True, vmin
 
 # === Fonction principale ===
 
-def generate_report(analysis_results):
+def generate_report(analysis_results, tickers):
     # Chargement des fichiers nécessaires
     correlation_matrix = load_csv_file('output/matrice_correlation.csv')
     df_ratios = load_csv_file('output/rapport_ratios.csv')
@@ -103,14 +103,32 @@ def generate_report(analysis_results):
     img_performance_base64 = image_to_base64('output/performance_relative_et_prix.png')
     img_corr_mobile_base64 = image_to_base64('output/correlations_rolling_windows.png')
     img_corr_base64 = image_to_base64('output/matrice_correlation.png')
+    # Images de volatilité
+    img_vol_hist = image_to_base64('output/volatilite_historique.png')
+    img_vol_mobile = image_to_base64('output/volatilite_mobile.png')
+    
+    # Chargement des données de volatilité
+    vol_table = pd.read_csv('output/volatilite_table.csv', index_col=0)
+    vol_table_html = vol_table.to_html(
+        classes='volatility-table',
+        float_format=lambda x: '{:.2f}%'.format(x)
+    )
 
-    df_ratios_html = df_ratios.to_html(index=False, border=0)
+    # Créer une copie du DataFrame avec un index commençant à 1
+    df_ratios = df_ratios.copy()
+    df_ratios.index = range(1, len(df_ratios) + 1)
+
+    df_ratios_html = df_ratios.to_html(
+        classes='ratios-table', 
+        float_format=lambda x: '{:.2f}'.format(x) if pd.notnull(x) else '', 
+        index=True
+    )
 
     html_report = f"""
     <html>
     <head>
         <meta charset="UTF-8">
-        <title>Rapport d'Analyse des Cryptomonnaies</title>
+        <title>Cryptocurrency Analysis Report</title>
         <style>
             body {{
                 font-family: 'Roboto', sans-serif;
@@ -193,37 +211,129 @@ def generate_report(analysis_results):
             .nav-buttons button:hover {{
                 background: linear-gradient(135deg, #0d8ddb, #0bc6e3);
             }}
+            .ratios-table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin: 20px 0;
+                background-color: #1e1e1e;
+                border-radius: 8px;
+                overflow: hidden;
+            }}
+            .ratios-table th {{
+                background-color: #2a2a2a;
+                color: #1fa2ff;
+                padding: 12px 15px;
+                text-align: center;
+                border: 1px solid #2e2e2e;
+                font-weight: bold;
+            }}
+            .ratios-table th:first-child,
+            .ratios-table td:first-child {{
+                min-width: initial;
+                white-space: initial;
+                padding-right: 15px;
+            }}
+            .ratios-table th:nth-child(2),
+            .ratios-table td:nth-child(2) {{
+                min-width: 140px;
+                white-space: nowrap;
+                padding-right: 20px;
+            }}
+            .ratios-table td {{
+                padding: 12px 15px;
+                text-align: right;
+                border: 1px solid #2e2e2e;
+                color: #f1f1f1;
+            }}            
+            .ratios-table tr:hover {{
+                background-color: #2a2a2a;
+            }}            
+            .ratios-section {{
+                margin: 40px 0;
+                padding: 20px;
+                background-color: #1e1e1e;
+                border-radius: 8px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            }}
+            .volatility-table-container {{
+                margin-top: 20px;
+                padding: 15px;
+                background-color: #1e1e1e;
+                border-radius: 8px;
+            }}
+            .volatility-table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin: 10px 0;
+            }}
+            .volatility-table th {{
+                background-color: #2a2a2a;
+                color: #1fa2ff;
+                padding: 12px;
+                text-align: left;
+            }}
+            .volatility-table td {{
+                padding: 10px;
+                border-bottom: 1px solid #2e2e2e;
+            }}
         </style>
     </head>
     <body>
         <div class="container">
-            <h1>Rapport d'Analyse des Cryptomonnaies</h1>
+            <h1>Cryptocurrency Analysis Report</h1>
             
-            {risk_free_html}
+            <h2 style="color: #1fa2ff;">Risk-Free Rate</h2>
+            <ul style="list-style-type: none; padding-left: 0;">
+              <li><strong>Annual risk-free rate:</strong> {risk_data['annual_rate'] * 100:.2f}%</li>
+              <li><strong>Daily risk-free rate:</strong> {risk_data['daily_rate'] * 100:.4f}%</li>
+            </ul>
 
-            <h2>Rendements Annuels</h2>
-            <p>Voici une heatmap illustrant les rendements annuels (en %) des différentes cryptomonnaies :</p>
-            <img src="data:image/png;base64,{img_annual_heatmap_base64}" alt="Heatmap Rendements Annuels">
-
-            <h2>Rendements Mensuels</h2>
-            <p>Heatmap des rendements mensuels (en %) des cryptos, année par année :</p>
-            <img id="monthlyHeatmap" src="" alt="Heatmap Rendements Mensuels">
-            <div class="nav-buttons">
-                <button onclick="prevYear()">⬅️ Année précédente</button>
-                <button onclick="nextYear()">Année suivante ➡️</button>
+            <h2>Performance and Risk Ratios</h2>
+            <div class="ratios-section">
+                <p>This table presents the main performance and risk indicators for each cryptocurrency:</p>
+                {df_ratios_html}
             </div>
 
-            <h2>Performance Relative des Cryptomonnaies</h2>
-            <p>Voici le graphique de la performance relative des cryptomonnaies sur la période d'analyse :</p>
-            <img src="data:image/png;base64,{img_performance_base64}" alt="Performance Relative">
+            <h2>Annual Returns</h2>
+            <p>Here is a heatmap showing the annual returns (%) of different cryptocurrencies:</p>
+            <img src="data:image/png;base64,{img_annual_heatmap_base64}" alt="Annual Returns Heatmap">
 
-            <h2>Corrélation Mobile</h2>
-            <p>Voici la matrice de corrélation mobile des rendements quotidiens pour les cryptomonnaies analysées :</p>
-            <img src="data:image/png;base64,{img_corr_mobile_base64}" alt="Corrélation Mobile">
+            <h2>Monthly Returns</h2>
+            <p>Heatmap of monthly returns (%) by year:</p>
+            <img id="monthlyHeatmap" src="" alt="Monthly Returns Heatmap">
+            <div class="nav-buttons">
+                <button onclick="prevYear()">⬅️ Previous Year</button>
+                <button onclick="nextYear()">Next Year ➡️</button>
+            </div>
 
-            <h2>Heatmap de la Corrélation</h2>
-            <p>Voici une visualisation de la matrice de corrélation sous forme de heatmap :</p>
-            <img src="data:image/png;base64,{img_corr_base64}" alt="Heatmap de la Corrélation">
+            <h2>Relative Performance of Cryptocurrencies</h2>
+            <p>Here is the relative performance chart of cryptocurrencies over the analysis period:</p>
+            <img src="data:image/png;base64,{img_performance_base64}" alt="Relative Performance">
+
+            <h2>Rolling Correlation</h2>
+            <p>Here is the rolling correlation matrix of daily returns for the analyzed cryptocurrencies:</p>
+            <img src="data:image/png;base64,{img_corr_mobile_base64}" alt="Rolling Correlation">
+
+            <h2>Correlation Heatmap</h2>
+            <p>Here is a visualization of the correlation matrix as a heatmap:</p>
+            <img src="data:image/png;base64,{img_corr_base64}" alt="Correlation Heatmap">
+
+            <h2>Volatility Analysis</h2>
+            <div class="volatility-section">
+                <p>This section presents the volatility analysis of cryptocurrencies using two complementary approaches.</p>
+                
+                <div class="volatility-card">
+                    <h3>Historical Volatility</h3>
+                    <p>Comparison of annualized historical volatility between different cryptocurrencies.</p>
+                    <img src="data:image/png;base64,{img_vol_hist}" alt="Historical Volatility">
+                </div>
+
+                <div class="volatility-card">
+                    <h3>Rolling Volatility</h3>
+                    <p>Evolution of volatility over a 30-day rolling window.</p>
+                    <img src="data:image/png;base64,{img_vol_mobile}" alt="Rolling Volatility">
+                </div>
+            </div>
         </div>
 
         <script>
@@ -250,7 +360,6 @@ def generate_report(analysis_results):
                     updateHeatmap();
                 }}
             }}
-            // Afficher la première heatmap au chargement
             updateHeatmap();
         </script>
     </body>
@@ -266,3 +375,4 @@ if __name__ == "__main__":
     with open("rapport.html", "w", encoding="utf-8") as f:
         f.write(report_html)
     print("Rapport généré dans 'rapport.html'")
+   

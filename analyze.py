@@ -7,16 +7,13 @@ from itertools import combinations
 import os
 import json
 from extraction import extract_data
-
+from matplotlib.animation import FuncAnimation
 import matplotlib
 matplotlib.use('Agg') 
 
 
-def run_analysis():
-    cryptos_base = ['BTC', 'ETH', 'SOL', 'BNB']
+def run_analysis(cryptos_base, start_date, end_date):
     cryptos_tickers = [f"{c}-USD" for c in cryptos_base]
-    start_date = "2020-04-10"
-    end_date = "2025-03-31"
 
     data = extract_data(cryptos_base, start_date, end_date, save_csv=True)
     data.index = pd.to_datetime(data.index)
@@ -33,7 +30,6 @@ def run_analysis():
     print("Rendements quotidiens :")
     print(daily_returns.head())
 
-    # Matrice de corrélation
     correlation_matrix = daily_returns.corr()
     print("\nMatrice de corrélation des rendements quotidiens :")
     print(correlation_matrix.round(2))
@@ -125,6 +121,9 @@ def run_analysis():
         'VaR (95%)': var_values,
         'CVaR (95%)': cvar_values
     })
+    df_ratios.index.name = 'Pairs' 
+
+    generate_volatility_charts(data, cryptos_base)
 
     df_ratios.to_csv("output/rapport_ratios.csv")
     print("\nTableau des rendements et ratios de risque :")
@@ -175,7 +174,91 @@ def run_analysis():
     plt.tight_layout()
     fig.savefig('output/performance_relative_et_prix.png')
 
+    #########################################################
+    # Volatility
 
+def generate_volatility_charts(data, tickers):
+    """
+    Generates volatility analysis based on:
+    1. Annualized historical volatility (barplot) with values at the end of bars
+    2. Rolling volatility over 30 days
+    
+    Parameters:
+    -----------
+    data : pandas.DataFrame
+        DataFrame containing OHLCV data
+    tickers : list
+        List of tickers to analyze
+    """
+    os.makedirs('output', exist_ok=True)
+
+    vol_hist = {}
+    vol_rolling = pd.DataFrame()
+    ann_factor = 365**0.5
+    window = 30
+
+    # Volatility calculations
+    for ticker in tickers:
+        col = f"Close_{ticker}-USD"
+        if col not in data.columns:
+            continue
+        returns = data[col].pct_change()
+        vol_hist[ticker] = returns.std() * ann_factor * 100
+        vol_rolling[ticker] = returns.rolling(window).std() * ann_factor * 100
+
+    # Barplot (historical volatility) with values
+    vol_hist_series = pd.Series(vol_hist).sort_values(ascending=True)
+    
+    # Create figure
+    fig, ax = plt.subplots(figsize=(12, 6))
+    
+    # Create barplot
+    bars = ax.barh(y=vol_hist_series.index, 
+                   width=vol_hist_series.values,
+                   color=sns.color_palette("coolwarm", len(vol_hist_series)))
+    
+    # Add values at the end of bars
+    for bar in bars:
+        width = bar.get_width()
+        ax.text(width,                     # x position (end of bar)
+                bar.get_y() + bar.get_height()/2,  # y position (middle of bar)
+                f'{width:.1f}%',           # Text to display
+                ha='left',                 # Horizontal alignment
+                va='center',               # Vertical alignment
+                fontsize=10,               # Font size
+                fontweight='bold',         # Bold
+                color='black',             # Text color
+                bbox=dict(facecolor='white',  # White background
+                         alpha=0.7,           # Semi-transparent
+                         edgecolor='none',    # No border
+                         pad=1))              # Padding
+    
+    # Customize graph
+    ax.set_title("Annualized Historical Volatility (%)", pad=20, fontsize=12, fontweight='bold')
+    ax.set_xlabel("Volatility (%)")
+    
+    # Add light grid
+    ax.grid(True, axis='x', linestyle='--', alpha=0.3)
+    
+    # Adjust margins
+    plt.margins(x=0.2)
+    
+    plt.tight_layout()
+    plt.savefig('output/volatilite_historique.png', dpi=300, bbox_inches='tight')
+    plt.close()
+
+    # Rolling volatility curves
+    plt.figure(figsize=(12, 6))
+    for ticker in vol_rolling.columns:
+        plt.plot(vol_rolling.index, vol_rolling[ticker], label=ticker)
+    plt.title("Evolution of 30-Day Rolling Annualized Volatility")
+    plt.xlabel("Date")
+    plt.ylabel("Volatility (%)")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig('output/volatilite_mobile.png')
+    plt.close()
 # ---------------------------------------------------
 # Permet d'exécuter le fichier seul en debug
 if __name__ == "__main__":

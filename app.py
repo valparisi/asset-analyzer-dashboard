@@ -2,40 +2,238 @@ from flask import Flask, request, render_template_string
 from extraction import extract_data
 from analyze import run_analysis
 from generate import generate_report
+from datetime import date
 
 app = Flask(__name__)
 
 @app.route('/')
 def home():
-    return '''
-    <h1>Rapport Crypto Interactif</h1>
-    <form action="/generate" method="post">
-        <label>Tickers (séparés par des virgules):</label><br>
-        <input type="text" name="tickers" value="BTC,ETH,BNB,SOL"><br><br>
-        <label>Date début (YYYY-MM-DD):</label><br>
-        <input type="text" name="start_date" value="2022-01-01"><br><br>
-        <label>Date fin (YYYY-MM-DD):</label><br>
-        <input type="text" name="end_date" value="2024-12-31"><br><br>
-        <input type="submit" value="Générer le rapport">
-    </form>
-    '''
+    # Définir une date de début par défaut (par exemple, 1er janvier 2023)
+    default_start_date = "2022-01-01"
+    # Définir une date de fin par défaut (par exemple, aujourd'hui)
+    default_end_date = date.today().strftime("%Y-%m-%d")
+    
+    return render_template_string('''
+    <!DOCTYPE html>
+    <html lang="fr">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Rapport Crypto</title>
+
+        <!-- Fonts & Icons -->
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+        <link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" />
+
+        <style>
+            :root {
+                --bg-dark: #0f111a;
+                --bg-light: #f4f6fa;
+                --text-dark: #f8f9fa;
+                --text-light: #121212;
+                --primary: #00b4fc;
+                --input-dark: #1f2233;
+                --input-light: #eaeaea;
+                --card-dark: rgba(255, 255, 255, 0.05);
+                --card-light: #ffffff;
+            }
+
+            body {
+                font-family: 'Inter', sans-serif;
+                background-color: var(--bg-dark);
+                color: var(--text-dark);
+                transition: background-color 0.3s, color 0.3s;
+            }
+
+            body.light-mode {
+                background-color: var(--bg-light);
+                color: var(--text-light);
+            }
+
+            .container {
+                max-width: 600px;
+                margin: 60px auto;
+                background: var(--card-dark);
+                padding: 30px;
+                border-radius: 15px;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            }
+
+            body.light-mode .container {
+                background: var(--card-light);
+            }
+
+            h1 {
+                text-align: center;
+                margin-bottom: 30px;
+            }
+
+            .form-label {
+                font-weight: 600;
+                margin-bottom: 0.5rem;
+                display: block;
+            }
+
+            .form-control, .select2-container--default .select2-selection--multiple {
+                border: none;
+                border-radius: 10px;
+                padding: 10px;
+                background-color: var(--input-dark);
+                color: var(--text-dark);
+                width: 100% !important;
+                box-sizing: border-box;
+            }
+
+            body.light-mode .form-control,
+            body.light-mode .select2-container--default .select2-selection--multiple {
+                background-color: var(--input-light);
+                color: var(--text-light);
+            }
+
+            .btn {
+                background-color: var(--primary);
+                color: white;
+                border: none;
+                padding: 12px;
+                width: 100%;
+                border-radius: 10px;
+                font-weight: 600;
+                font-size: 16px;
+                cursor: pointer;
+                margin-top: 15px;
+            }
+
+            .btn:hover {
+                background-color: #009cd6;
+            }
+
+            .select2-selection__choice {
+                background-color: var(--primary) !important;
+                color: white !important;
+                border: none !important;
+                padding: 5px 10px !important;
+                border-radius: 15px !important;
+                font-size: 13px;
+            }
+
+            /* Style dropdown list in dark mode */
+            .select2-container--default .select2-results > .select2-results__options {
+                background-color: var(--input-dark);
+                color: var(--text-dark);
+            }
+
+            body.light-mode .select2-container--default .select2-results > .select2-results__options {
+                background-color: var(--input-light);
+                color: var(--text-light);
+            }
+
+            .select2-container--default .select2-results__option--highlighted[aria-selected] {
+                background-color: var(--primary);
+                color: white;
+            }
+
+            .mode-toggle {
+                position: fixed;
+                top: 20px;
+                right: 25px;
+                background: none;
+                border: none;
+                font-size: 1.8rem;
+                color: var(--primary);
+                cursor: pointer;
+                z-index: 999;
+            }
+        </style>
+    </head>
+    <body class="dark-mode">
+        <button class="mode-toggle" id="toggle-mode-btn" title="Changer le thème">
+            <i class="bi bi-moon-stars-fill" id="toggle-icon"></i>
+        </button>
+
+        <div class="container">
+            <h1>📈 Rapport Crypto</h1>
+            <form action="/generate" method="post">
+                <div class="form-group">
+                    <label class="form-label" for="tickers">Choose your tickers:</label>
+                    <select name="tickers[]" id="tickers" multiple="multiple" class="form-control">
+                        <option value="BTC" selected>BTC</option>
+                        <option value="ETH" selected>ETH</option>
+                        <option value="BNB" selected>BNB</option>
+                        <option value="SOL" selected>SOL</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="start_date">Start date:</label>
+                    <input type="date" name="start_date" id="start_date" class="form-control" required value="{{ default_start_date }}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="end_date">End date:</label>
+                    <input type="date" name="end_date" id="end_date" class="form-control" required value="{{ default_end_date }}">
+                </div>
+
+                <button type="submit" class="btn">Générer le rapport</button>
+            </form>
+        </div>
+
+        <!-- Scripts -->
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
+        <script>
+            $(document).ready(function() {
+                $('#tickers').select2({
+                    placeholder: "Select one or more tickers",
+                    width: '100%',
+                    tags: false
+                });
+                
+                // Sélectionner tous les tickers par défaut
+                $('#tickers').val(['BTC', 'ETH', 'BNB', 'SOL']).trigger('change');
+            });
+
+            const toggleBtn = document.getElementById('toggle-mode-btn');
+            const icon = document.getElementById('toggle-icon');
+
+            toggleBtn.addEventListener('click', () => {
+                document.body.classList.toggle('light-mode');
+                if (document.body.classList.contains('light-mode')) {
+                    icon.classList.remove('bi-moon-stars-fill');
+                    icon.classList.add('bi-sun-fill');
+                } else {
+                    icon.classList.remove('bi-sun-fill');
+                    icon.classList.add('bi-moon-stars-fill');
+                }
+            });
+        </script>
+    </body>
+    </html>
+    ''', default_start_date=default_start_date, default_end_date=default_end_date)
+
+
+
+
 
 @app.route('/generate', methods=['POST'])
 def generate():
-    tickers = request.form['tickers'].replace(" ", "").split(',')
+    # Récupération des tickers, date de début et de fin depuis le formulaire
+    tickers = request.form.getlist('tickers[]')  # récupère la liste exacte sélectionnée
     start_date = request.form['start_date']
     end_date = request.form['end_date']
 
-    # 1. Extraire les données via extraction.py
+    # 1. Extraction des données selon les tickers
     df = extract_data(tickers, start_date, end_date)
 
-    # 2. Lancer l'analyse (run_analysis lit le CSV généré par extract_data)
-    analysis_results = run_analysis()
+    # 2. Analyse des données extraites
+    # On passe maintenant les tickers et les dates à run_analysis
+    analysis_results = run_analysis(tickers, start_date, end_date)  # passer ces valeurs dans la fonction
 
-    # 3. Générer le rapport HTML complet via generate_report.py
-    html_report = generate_report(analysis_results)
+    # 3. Génération du rapport personnalisé
+    # Supposons que `analysis_results` contienne les informations nécessaires pour générer le rapport
+    html_report = generate_report(analysis_results, tickers=tickers)
 
     return render_template_string(html_report)
+
 
 if __name__ == "__main__":
     app.run(debug=True)
