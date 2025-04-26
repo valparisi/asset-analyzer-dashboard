@@ -13,36 +13,60 @@ matplotlib.use('Agg')
 
 
 def run_analysis(cryptos_base, start_date, end_date):
+    """
+    Analyse les données pour une liste variable de cryptomonnaies.
+    
+    Parameters:
+    -----------
+    cryptos_base : list
+        Liste des tickers (sans le suffixe -USD)
+    start_date : str
+        Date de début au format YYYY-MM-DD
+    end_date : str
+        Date de fin au format YYYY-MM-DD
+    """
+    if not 1 <= len(cryptos_base) <= 8:
+        raise ValueError("Le nombre de tickers doit être entre 1 et 8")
+
+    # Ajout du suffixe -USD aux tickers
     cryptos_tickers = [f"{c}-USD" for c in cryptos_base]
-
-    data = extract_data(cryptos_base, start_date, end_date, save_csv=True)
-    data.index = pd.to_datetime(data.index)
-
-    print(data.head())
-
+    
+    # Extraction des données
+    data = extract_data(cryptos_tickers, start_date, end_date)
+    
+    # Calcul des rendements quotidiens
     daily_returns = pd.DataFrame()
-    os.makedirs("output", exist_ok=True)
-
     for ticker in cryptos_tickers:
-        close_column = f'Close_{ticker}'
-        daily_returns[ticker] = data[close_column].pct_change()
-
+        col = f"Close_{ticker}"
+        if col in data.columns:
+            daily_returns[ticker] = data[col].pct_change()
+    
+    # Matrice de corrélation (seulement si plus d'un ticker)
+    if len(cryptos_tickers) > 1:
+        correlation_matrix = daily_returns.corr()
+        correlation_matrix.to_csv("output/matrice_correlation.csv")
+        
+        # Corrélations mobiles (seulement si plus d'un ticker)
+        crypto_pairs = list(combinations(cryptos_tickers, 2))
+        rolling_correlations = pd.DataFrame(index=daily_returns.index)
+        
+        for crypto1, crypto2 in crypto_pairs:
+            col_name = f"{crypto1}/{crypto2}"
+            rolling_correlations[col_name] = (
+                daily_returns[crypto1].rolling(window=30)
+                .corr(daily_returns[crypto2])
+            )
+    
     print("Rendements quotidiens :")
     print(daily_returns.head())
-
-    correlation_matrix = daily_returns.corr()
-    print("\nMatrice de corrélation des rendements quotidiens :")
-    print(correlation_matrix.round(2))
 
     plt.figure(figsize=(8, 6))
     sns.heatmap(correlation_matrix, annot=True, cmap='coolwarm', fmt='.2f', linewidths=0.5)
     plt.title("Matrice de corrélation des rendements quotidiens")
     plt.savefig("output/matrice_correlation.png")
     plt.close()
-    correlation_matrix.to_csv("output/matrice_correlation.csv")
 
     rolling_windows = [30, 90]
-    crypto_pairs = list(combinations(cryptos_tickers, 2))
 
     fig, axes = plt.subplots(nrows=len(crypto_pairs), ncols=1, figsize=(14, 4 * len(crypto_pairs)), sharex=True)
     if len(crypto_pairs) == 1:
@@ -154,7 +178,9 @@ def run_analysis(cryptos_base, start_date, end_date):
         close_column = f'Close_{ticker}'
         normalized_prices[ticker] = (data[close_column] / data[close_column].iloc[0] - 1) * 100
 
-    fig, axes = plt.subplots(nrows=5, ncols=1, figsize=(14, 12), gridspec_kw={'height_ratios': [2, 1, 1, 1, 1]})
+    fig, axes = plt.subplots(nrows=len(cryptos_tickers) + 1, ncols=1, 
+                            figsize=(14, 3 * (len(cryptos_tickers) + 1)), 
+                            gridspec_kw={'height_ratios': [2] + [1] * len(cryptos_tickers)})
 
     axes[0].set_title('Performance relative des cryptomonnaies (%)')
     for ticker in cryptos_tickers:
@@ -166,8 +192,8 @@ def run_analysis(cryptos_base, start_date, end_date):
 
     for i, ticker in enumerate(cryptos_tickers):
         close_column = f'Close_{ticker}'
-        axes[i + 1].plot(data.index, data[close_column], label=f'Prix de {ticker}', color='tab:blue')
-        axes[i + 1].set_ylabel('Prix ($)')
+        axes[i + 1].plot(data.index, data[close_column], label=f'Price of {ticker}', color='tab:blue')
+        axes[i + 1].set_ylabel('Price ($)')
         axes[i + 1].legend()
         axes[i + 1].grid(True)
 

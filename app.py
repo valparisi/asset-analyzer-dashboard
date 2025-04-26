@@ -13,13 +13,29 @@ def home():
     # Définir une date de fin par défaut (par exemple, aujourd'hui)
     default_end_date = date.today().strftime("%Y-%m-%d")
     
-    return render_template_string('''
+    # Liste étendue des tickers disponibles
+    available_tickers = [
+        {"value": "BTC", "text": "Bitcoin (BTC)"},
+        {"value": "ETH", "text": "Ethereum (ETH)"},
+        {"value": "BNB", "text": "Binance Coin (BNB)"},
+        {"value": "SOL", "text": "Solana (SOL)"},
+        {"value": "ADA", "text": "Cardano (ADA)"},
+        {"value": "XRP", "text": "Ripple (XRP)"},
+        {"value": "DOT", "text": "Polkadot (DOT)"},
+        {"value": "DOGE", "text": "Dogecoin (DOGE)"},
+        {"value": "AVAX", "text": "Avalanche (AVAX)"},
+        {"value": "MATIC", "text": "Polygon (MATIC)"},
+        {"value": "LINK", "text": "Chainlink (LINK)"},
+        {"value": "UNI", "text": "Uniswap (UNI)"}
+    ]
+    
+    template = '''
     <!DOCTYPE html>
-    <html lang="fr">
+    <html lang="en">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Rapport Crypto</title>
+        <title>Crypto Report</title>
 
         <!-- Fonts & Icons -->
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
@@ -147,49 +163,47 @@ def home():
         </style>
     </head>
     <body class="dark-mode">
-        <button class="mode-toggle" id="toggle-mode-btn" title="Changer le thème">
+        <button class="mode-toggle" id="toggle-mode-btn" title="Change theme">
             <i class="bi bi-moon-stars-fill" id="toggle-icon"></i>
         </button>
 
         <div class="container">
-            <h1>📈 Rapport Crypto</h1>
+            <h1>📈 Crypto Report</h1>
             <form action="/generate" method="post">
                 <div class="form-group">
-                    <label class="form-label" for="tickers">Choose your tickers:</label>
+                    <label class="form-label" for="tickers">Choose your tickers (1 to 8):</label>
                     <select name="tickers[]" id="tickers" multiple="multiple" class="form-control">
-                        <option value="BTC" selected>BTC</option>
-                        <option value="ETH" selected>ETH</option>
-                        <option value="BNB" selected>BNB</option>
-                        <option value="SOL" selected>SOL</option>
+                        {% for ticker in available_tickers %}
+                        <option value="{{ ticker.value }}">{{ ticker.text }}</option>
+                        {% endfor %}
                     </select>
                 </div>
 
                 <div class="form-group">
                     <label class="form-label" for="start_date">Start date:</label>
-                    <input type="date" name="start_date" id="start_date" class="form-control" required value="{{ default_start_date }}">
+                    <input type="date" name="start_date" id="start_date" class="form-control" required value="{{default_start_date}}">
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="end_date">End date:</label>
-                    <input type="date" name="end_date" id="end_date" class="form-control" required value="{{ default_end_date }}">
+                    <input type="date" name="end_date" id="end_date" class="form-control" required value="{{default_end_date}}">
                 </div>
 
-                <button type="submit" class="btn">Générer le rapport</button>
+                <button type="submit" class="btn">Generate Report</button>
             </form>
         </div>
 
         <!-- Scripts -->
         <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css"></script>
         <script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
         <script>
             $(document).ready(function() {
                 $('#tickers').select2({
-                    placeholder: "Select one or more tickers",
+                    placeholder: "Select 1 to 8 tickers",
                     width: '100%',
-                    tags: false
+                    tags: false,
+                    maximumSelectionLength: 8
                 });
-                
-                // Sélectionner tous les tickers par défaut
-                $('#tickers').val(['BTC', 'ETH', 'BNB', 'SOL']).trigger('change');
             });
 
             const toggleBtn = document.getElementById('toggle-mode-btn');
@@ -208,7 +222,12 @@ def home():
         </script>
     </body>
     </html>
-    ''', default_start_date=default_start_date, default_end_date=default_end_date)
+    '''
+    
+    return render_template_string(template, 
+                                default_start_date=default_start_date, 
+                                default_end_date=default_end_date,
+                                available_tickers=available_tickers)
 
 
 

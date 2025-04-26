@@ -46,40 +46,55 @@ def generate_heatmap(df, title, figsize=(12, 6), cmap="RdYlGn", annot=True, vmin
 # === Fonction principale ===
 
 def generate_report(analysis_results, tickers):
+    """
+    Génère le rapport en fonction du nombre de tickers sélectionnés.
+    
+    Parameters:
+    -----------
+    analysis_results : dict
+        Résultats de l'analyse
+    tickers : list
+        Liste des tickers analysés
+    """
     # Chargement des fichiers nécessaires
-    correlation_matrix = load_csv_file('output/matrice_correlation.csv')
     df_ratios = load_csv_file('output/rapport_ratios.csv')
     data = pd.read_csv('output/rendements_cryptos.csv', index_col='Date', parse_dates=True)
-    monthly_returns_all_cryptos = load_csv_file('output/monthly_returns_all_cryptos.csv')
-    annual_returns_transposed = load_csv_file('output/annual_returns_transposed.csv')
-
-    # Heatmap rendements annuels
-    img_annual_heatmap = generate_heatmap(
-        annual_returns_transposed.set_index("Crypto"),
-        "Rendements Annuels (%)"
-    )
-    img_annual_heatmap_base64 = base64.b64encode(img_annual_heatmap.read()).decode('utf-8')
-
-    # Heatmaps mensuelles
-    monthly_returns_all_cryptos.set_index("Crypto", inplace=True)
-    monthly_returns_by_year = {}
-    for col in monthly_returns_all_cryptos.columns:
-        parts = col.split(" ")
-        if len(parts) >= 2:
-            year = parts[1]
-            monthly_returns_by_year.setdefault(year, []).append(col)
-        else:
-            monthly_returns_by_year.setdefault("Inconnu", []).append(col)
-
-    monthly_heatmaps_base64 = {}
-    for year, columns in monthly_returns_by_year.items():
-        df_year = monthly_returns_all_cryptos[columns]
-        img = generate_heatmap(
-            df_year,
-            f"Rendements Mensuels (%) - {year}"
+    
+    # Adaptation des graphiques au nombre de tickers
+    if len(tickers) > 1:
+        monthly_returns_all_cryptos = load_csv_file('output/monthly_returns_all_cryptos.csv')
+        annual_returns_transposed = load_csv_file('output/annual_returns_transposed.csv')
+        
+        # Génération des heatmaps seulement si plus d'un ticker
+        img_annual_heatmap = generate_heatmap(
+            annual_returns_transposed.set_index("Crypto"),
+            "Annual Returns (%)"
         )
-        monthly_heatmaps_base64[year] = base64.b64encode(img.read()).decode('utf-8')
-    monthly_heatmaps_json = json.dumps(monthly_heatmaps_base64)
+        img_annual_heatmap_base64 = base64.b64encode(img_annual_heatmap.read()).decode('utf-8')
+        
+        # Heatmaps mensuelles
+        monthly_returns_all_cryptos.set_index("Crypto", inplace=True)
+        monthly_returns_by_year = {}
+        for col in monthly_returns_all_cryptos.columns:
+            parts = col.split(" ")
+            if len(parts) >= 2:
+                year = parts[1]
+                monthly_returns_by_year.setdefault(year, []).append(col)
+            else:
+                monthly_returns_by_year.setdefault("Inconnu", []).append(col)
+
+        monthly_heatmaps_base64 = {}
+        for year, columns in monthly_returns_by_year.items():
+            df_year = monthly_returns_all_cryptos[columns]
+            img = generate_heatmap(
+                df_year,
+                f"Rendements Mensuels (%) - {year}"
+            )
+            monthly_heatmaps_base64[year] = base64.b64encode(img.read()).decode('utf-8')
+        monthly_heatmaps_json = json.dumps(monthly_heatmaps_base64)
+    else:
+        img_annual_heatmap_base64 = ""
+        monthly_heatmaps_json = ""
 
     # Taux sans risque
     with open("output/risk_free.json") as f:
@@ -93,11 +108,12 @@ def generate_report(analysis_results, tickers):
     """
 
     # Performance relative
-    cryptos_tickers = ['BTC-USD', 'ETH-USD', 'SOL-USD', 'BNB-USD']
     normalized_prices = pd.DataFrame()
+    cryptos_tickers = [f"{c}-USD" for c in tickers]  # Ajout du suffixe -USD
     for ticker in cryptos_tickers:
-        close_column = f'Close_{ticker}'
-        normalized_prices[ticker] = (data[close_column] / data[close_column].iloc[0] - 1) * 100
+        close_column = f"Close_{ticker}"
+        if close_column in data.columns:
+            normalized_prices[ticker] = (data[close_column] / data[close_column].iloc[0] - 1) * 100
 
     # Images
     img_performance_base64 = image_to_base64('output/performance_relative_et_prix.png')
@@ -123,6 +139,16 @@ def generate_report(analysis_results, tickers):
         float_format=lambda x: '{:.2f}'.format(x) if pd.notnull(x) else '', 
         index=True
     )
+
+    # Adaptation du template HTML en fonction du nombre de tickers
+    correlation_section = ""
+    if len(tickers) > 1:
+        correlation_section = f"""
+            <h2>Correlation Analysis</h2>
+            <p>Here is the correlation matrix and rolling correlations between the selected cryptocurrencies:</p>
+            <img src="data:image/png;base64,{img_corr_base64}" alt="Correlation Heatmap">
+            <img src="data:image/png;base64,{img_corr_mobile_base64}" alt="Rolling Correlation">
+        """
 
     html_report = f"""
     <html>
@@ -172,14 +198,9 @@ def generate_report(analysis_results, tickers):
                 color: #1fa2ff;
             }}
             img {{
-                display: block;
-                margin: 30px auto 10px;
-                border-radius: 8px;
-                box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.6);
-                max-width: 90%;
+                max-width: 95%;
                 height: auto;
-                background-color: #1e1e1e;
-                padding: 10px;
+                margin: 20px auto;
             }}
             ul {{
                 font-size: 16px;
@@ -276,6 +297,26 @@ def generate_report(analysis_results, tickers):
                 padding: 10px;
                 border-bottom: 1px solid #2e2e2e;
             }}
+            
+            /* Style pour les graphiques de prix individuels */
+            .price-charts {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+                gap: 20px;
+                margin: 20px 0;
+            }}
+            
+            .price-chart {{
+                background-color: #1e1e1e;
+                padding: 15px;
+                border-radius: 8px;
+            }}
+            
+            /* Ajustement pour les tableaux avec plus de données */
+            .table-container {{
+                overflow-x: auto;
+                margin: 20px 0;
+            }}
         </style>
     </head>
     <body>
@@ -310,13 +351,7 @@ def generate_report(analysis_results, tickers):
             <p>Here is the relative performance chart of cryptocurrencies over the analysis period:</p>
             <img src="data:image/png;base64,{img_performance_base64}" alt="Relative Performance">
 
-            <h2>Rolling Correlation</h2>
-            <p>Here is the rolling correlation matrix of daily returns for the analyzed cryptocurrencies:</p>
-            <img src="data:image/png;base64,{img_corr_mobile_base64}" alt="Rolling Correlation">
-
-            <h2>Correlation Heatmap</h2>
-            <p>Here is a visualization of the correlation matrix as a heatmap:</p>
-            <img src="data:image/png;base64,{img_corr_base64}" alt="Correlation Heatmap">
+            {correlation_section}
 
             <h2>Volatility Analysis</h2>
             <div class="volatility-section">
